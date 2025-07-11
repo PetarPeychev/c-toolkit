@@ -1,0 +1,88 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "cc",
+            "args": [
+                "-std=c99",
+                "-Wall",
+                "-Werror",
+                "-g",
+                "src/main.c",
+                "-o",
+                "bin/lemmec"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": "create-bin-dir"
+        },
+        {
+            "label": "create-bin-dir",
+            "type": "shell",
+            "command": "mkdir",
+            "args": [
+                "-p",
+                "bin"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "build_tests",
+            "type": "shell",
+            "command": "cc",
+            "args": [
+                "-std=c99",
+                "-Wall",
+                "-Werror",
+                "-g",
+                "-DTEST_ENABLED",
+                "src/test.c",
+                "-o",
+                "bin/test"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOrder": "sequence",
+            "dependsOn": "create-bin-dir"
+        }
+    ]
+}
