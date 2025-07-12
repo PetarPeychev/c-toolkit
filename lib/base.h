@@ -54,12 +54,13 @@ extern Allocator heap_allocator;
 
 typedef struct {
     Allocator allocator;
+    Allocator *backing_allocator;
     u8 *buffer;
     usize capacity;
     usize offset;
 } Arena;
 
-Arena arena_new(usize capacity);
+Arena arena_new(Allocator *backing_allocator, usize capacity);
 void *arena_alloc(Arena *arena, usize size);
 void arena_reset(Arena *arena);
 void arena_free(Arena *arena);
@@ -95,20 +96,21 @@ void *arena_allocator_alloc(Allocator *allocator, usize size) {
 
 void arena_allocator_free(Allocator *allocator, void *ptr) {}
 
-Arena arena_new(usize capacity) {
+Arena arena_new(Allocator *backing_allocator, usize capacity) {
     Arena arena = {
         .allocator = {
             .alloc = arena_allocator_alloc,
             .free = arena_allocator_free
         },
-        .buffer = (u8 *)malloc(capacity),
+        .backing_allocator = backing_allocator,
+        .buffer = (u8 *)backing_allocator->alloc(backing_allocator, capacity),
         .capacity = capacity
     };
-    ASSERT(arena.buffer != NULL);
     return arena;
 }
 
 void *arena_alloc(Arena *arena, usize size) {
+    ASSERT(arena->buffer != NULL);
     ASSERT(arena->offset + size <= arena->capacity);
     void *ptr = arena->buffer + arena->offset;
     arena->offset += size;
@@ -121,7 +123,7 @@ void arena_reset(Arena *arena) {
 }
 
 void arena_free(Arena *arena) {
-    free(arena->buffer);
+    arena->backing_allocator->free(arena->backing_allocator, arena->buffer);
     arena->buffer = NULL;
     arena->capacity = 0;
     arena->offset = 0;

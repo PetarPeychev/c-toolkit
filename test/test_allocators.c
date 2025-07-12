@@ -19,7 +19,7 @@ TEST(heap_allocator_zero) {
 }
 
 TEST(arena_new) {
-    Arena arena = arena_new(8);
+    Arena arena = arena_new(&heap_allocator, 8);
 
     TEST_ASSERT(arena.allocator.alloc != NULL);
     TEST_ASSERT(arena.allocator.free != NULL);
@@ -31,7 +31,7 @@ TEST(arena_new) {
 }
 
 TEST(arena_alloc) {
-    Arena arena = arena_new(8);
+    Arena arena = arena_new(&heap_allocator, 8);
     i32 *ptr = (i32 *)arena_alloc(&arena, sizeof(i32));
 
     TEST_ASSERT(*ptr == 0);
@@ -47,7 +47,7 @@ TEST(arena_alloc) {
 }
 
 TEST(arena_reset) {
-    Arena arena = arena_new(8);
+    Arena arena = arena_new(&heap_allocator, 8);
     i32 *ptr = (i32 *)arena_alloc(&arena, sizeof(i32));
     *ptr = 42;
 
@@ -69,7 +69,7 @@ TEST(arena_reset) {
 }
 
 TEST(arena_allocator_alloc) {
-    Arena arena = arena_new(8);
+    Arena arena = arena_new(&heap_allocator, 8);
     Allocator *allocator = &arena.allocator;
     i32 *ptr = (i32 *)allocator->alloc(allocator, sizeof(i32));
     *ptr = 42;
@@ -96,6 +96,25 @@ TEST(arena_allocator_alloc) {
     arena_free(&arena);
 }
 
+TEST(arena_nested) {
+    Arena arena = arena_new(&heap_allocator, 1024);
+    Arena arena2 = arena_new(&arena.allocator, 8);
+    i32 *ptr = (i32 *)arena_alloc(&arena2, sizeof(i32));
+    *ptr = 42;
+
+    TEST_ASSERT(arena.buffer != NULL);
+    TEST_ASSERT(arena.capacity == 1024);
+    TEST_ASSERT(arena.offset == 8);
+
+    TEST_ASSERT(arena2.buffer != NULL);
+    TEST_ASSERT(arena2.capacity == 8);
+    TEST_ASSERT(arena2.offset == 4);
+
+    TEST_ASSERT(*ptr == 42);
+
+    arena_free(&arena);
+}
+
 void test_suite_heap_allocator(void) {
     TEST_RUN(heap_allocator_alloc);
     TEST_RUN(heap_allocator_zero);
@@ -106,4 +125,5 @@ void test_suite_arena(void) {
     TEST_RUN(arena_alloc);
     TEST_RUN(arena_reset);
     TEST_RUN(arena_allocator_alloc);
+    TEST_RUN(arena_nested);
 }
