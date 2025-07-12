@@ -5,7 +5,7 @@
             "name": "Debug lemmec",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/lemmec",
+            "program": "${workspaceFolder}/bin/debug",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

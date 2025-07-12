@@ -1,4 +1,5 @@
-#include "base.c"
+#define BASE_IMPLEMENTATION
+#include "../lib/base.h"
 
 int main(void) {
     Arena arena = arena_new(8);

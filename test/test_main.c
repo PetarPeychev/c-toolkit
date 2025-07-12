@@ -1,4 +1,8 @@
-#include "base.c"
+#define BASE_IMPLEMENTATION
+#include "../lib/base.h"
+
+#define TEST_IMPLEMENTATION
+#include "../lib/test.h"
 
 TEST(equal_pass) {
     TEST_ASSERT(1 == 1);

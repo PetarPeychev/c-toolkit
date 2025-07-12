@@ -12,7 +12,7 @@
                 "-g",
                 "src/main.c",
                 "-o",
-                "bin/lemmec"
+                "bin/debug"
             ],
             "group": {
                 "kind": "build",
@@ -61,7 +61,7 @@
                 "-Werror",
                 "-g",
                 "-DTEST_ENABLED",
-                "src/test.c",
+                "test/test_main.c",
                 "-o",
                 "bin/test"
             ],
