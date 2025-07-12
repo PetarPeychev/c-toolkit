@@ -43,7 +43,17 @@ typedef size_t usize;
 // --- Memory Allocation ---
 // -------------------------
 
+typedef struct Allocator Allocator;
+
+struct Allocator {
+    void *(*alloc)(Allocator *allocator, usize size);
+    void (*free)(Allocator *allocator, void *ptr);
+};
+
+extern Allocator heap_allocator;
+
 typedef struct {
+    Allocator allocator;
     u8 *buffer;
     usize capacity;
     usize offset;
@@ -53,19 +63,6 @@ Arena arena_new(usize capacity);
 void *arena_alloc(Arena *arena, usize size);
 void arena_reset(Arena *arena);
 void arena_free(Arena *arena);
-
-// ---------------
-// --- Strings ---
-// ---------------
-
-typedef struct {
-    u8 *buffer;
-    usize length;
-} String;
-
-String string_new(Arena *arena, usize length);
-String string_from_cstr(Arena *arena, char *cstr);
-void string_append(String *string, u8 *data, usize length);
 
 #endif // BASE_DECLARATIONS
 
@@ -78,8 +75,32 @@ void string_append(String *string, u8 *data, usize length);
 // --- Memory Allocation ---
 // -------------------------
 
+void *heap_allocator_alloc(Allocator *allocator, usize size) {
+    void *ptr = malloc(size);
+    ASSERT(ptr != NULL);
+    memset(ptr, 0, size);
+    return ptr;
+}
+
+void heap_allocator_free(Allocator *allocator, void *ptr) {
+    free(ptr);
+}
+
+Allocator heap_allocator = {heap_allocator_alloc, heap_allocator_free};
+
+void *arena_allocator_alloc(Allocator *allocator, usize size) {
+    Arena *arena = (Arena *)allocator;
+    return arena_alloc(arena, size);
+}
+
+void arena_allocator_free(Allocator *allocator, void *ptr) {}
+
 Arena arena_new(usize capacity) {
     Arena arena = {
+        .allocator = {
+            .alloc = arena_allocator_alloc,
+            .free = arena_allocator_free
+        },
         .buffer = (u8 *)malloc(capacity),
         .capacity = capacity
     };
@@ -91,6 +112,7 @@ void *arena_alloc(Arena *arena, usize size) {
     ASSERT(arena->offset + size <= arena->capacity);
     void *ptr = arena->buffer + arena->offset;
     arena->offset += size;
+    memset(ptr, 0, size);
     return ptr;
 }
 
@@ -103,32 +125,6 @@ void arena_free(Arena *arena) {
     arena->buffer = NULL;
     arena->capacity = 0;
     arena->offset = 0;
-}
-
-// ---------------
-// --- Strings ---
-// ---------------
-
-String string_new(Arena *arena, usize length) {
-    String string = {
-        .buffer = (u8 *)arena_alloc(arena, length),
-        .length = length
-    };
-    return string;
-}
-
-String string_from_cstr(Arena *arena, char *cstr) {
-    String string = {
-        .buffer = (u8 *)arena_alloc(arena, strlen(cstr)),
-        .length = strlen(cstr)
-    };
-    memcpy(string.buffer, cstr, string.length);
-    return string;
-}
-
-void string_append(String *string, u8 *data, usize length) {
-    memcpy(string->buffer + string->length, data, length);
-    string->length += length;
 }
 
 #endif // BASE_IMPLEMENTATION

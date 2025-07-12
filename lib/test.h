@@ -8,6 +8,10 @@ int TEST_RESULTS(void);
 
 #ifdef TEST_ENABLED
 
+bool _test_failed = false;
+i32 _tests_ran = 0;
+i32 _tests_failed = 0;
+
 #define TEST_ASSERT(condition) do { \
     if (!(condition)) { \
         fprintf(stderr, "\tASSERTION FAILED: %s at %s:%d in %s()\n", \
@@ -45,10 +49,6 @@ int TEST_RESULTS(void);
 // ---------------
 
 #ifdef TEST_ENABLED
-
-bool _test_failed = false;
-i32 _tests_ran = 0;
-i32 _tests_failed = 0;
 
 int TEST_RESULTS(void) {
     printf("\n=== TEST SUMMARY ===\n");
