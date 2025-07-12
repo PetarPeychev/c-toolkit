@@ -60,10 +60,28 @@ typedef struct {
     usize offset;
 } Arena;
 
-Arena arena_new(Allocator *backing_allocator, usize capacity);
+Arena arena_new(usize capacity, Allocator *backing_allocator);
 void *arena_alloc(Arena *arena, usize size);
 void arena_reset(Arena *arena);
 void arena_free(Arena *arena);
+
+// ---------------
+// --- Strings ---
+// ---------------
+
+typedef struct {
+    u8 *buffer;
+    usize length;
+    Allocator *allocator;
+} String;
+
+String string(const char *cstr, Allocator *allocator);
+String string_new(usize length, Allocator *allocator);
+String string_concat(String a, String b, Allocator *allocator);
+String string_slice(String string, usize start, usize end);
+bool string_eq(String a, String b);
+bool string_eq_cstr(String a, const char *cstr);
+void string_free(String *string);
 
 #endif // BASE_DECLARATIONS
 
@@ -96,7 +114,7 @@ void *arena_allocator_alloc(Allocator *allocator, usize size) {
 
 void arena_allocator_free(Allocator *allocator, void *ptr) {}
 
-Arena arena_new(Allocator *backing_allocator, usize capacity) {
+Arena arena_new(usize capacity, Allocator *backing_allocator) {
     Arena arena = {
         .allocator = {
             .alloc = arena_allocator_alloc,
@@ -127,6 +145,74 @@ void arena_free(Arena *arena) {
     arena->buffer = NULL;
     arena->capacity = 0;
     arena->offset = 0;
+}
+
+// ---------------
+// --- Strings ---
+// ---------------
+
+String string(const char *cstr, Allocator *allocator) {
+    usize length = strlen(cstr);
+    String str = {
+        .buffer = (u8 *)allocator->alloc(allocator, length),
+        .length = length,
+        .allocator = allocator
+    };
+    memcpy(str.buffer, cstr, length + 1);
+    return str;
+}
+
+String string_new(usize length, Allocator *allocator) {
+    String str = {
+        .buffer = (u8 *)allocator->alloc(allocator, length),
+        .length = length,
+        .allocator = allocator
+    };
+    return str;
+}
+
+String string_concat(String a, String b, Allocator *allocator) {
+    String str = {
+        .buffer = (u8 *)allocator->alloc(allocator, a.length + b.length),
+        .length = a.length + b.length,
+        .allocator = allocator
+    };
+    memcpy(str.buffer, a.buffer, a.length);
+    memcpy(str.buffer + a.length, b.buffer, b.length);
+    return str;
+}
+
+String string_slice(String string, usize start, usize end) {
+    String str = {
+        .buffer = string.buffer + start,
+        .length = end - start,
+        .allocator = NULL
+    };
+    return str;
+}
+
+bool string_eq(String a, String b) {
+    if (a.length != b.length) return false;
+    for (usize i = 0; i < a.length; i++) {
+        if (a.buffer[i] != b.buffer[i]) return false;
+    }
+    return true;
+}
+
+bool string_eq_cstr(String a, const char *cstr) {
+    usize length = strlen(cstr);
+    if (a.length != length) return false;
+    for (usize i = 0; i < a.length; i++) {
+        if (a.buffer[i] != cstr[i]) return false;
+    }
+    return true;
+}
+
+void string_free(String *string) {
+    if (string->allocator == NULL) return;
+    string->allocator->free(string->allocator, string->buffer);
+    string->buffer = NULL;
+    string->length = 0;
 }
 
 #endif // BASE_IMPLEMENTATION

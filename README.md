@@ -8,7 +8,7 @@ started quickly without reinventing the wheel.
 - [x] Custom memory allocators
 - [x] Arena (bump allocator)
 - [x] Unit testing framework
-- [ ] Length-based strings and slices
+- [x] Length-based strings and slices
 - [ ] Generic dynamic arrays
 - [ ] Generic hashmaps
 - [ ] Generic hashsets
