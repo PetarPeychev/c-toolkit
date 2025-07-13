@@ -86,6 +86,94 @@ bool string_eq(String a, String b);
 bool string_eq_cstr(String a, const char *cstr);
 void string_free(String *string);
 
+// ----------------------
+// --- Dynamic Arrays ---
+// ----------------------
+
+#define DYNAMIC_ARRAY_DECLARE(name, prefix, type) \
+    typedef struct { \
+        type *data; \
+        usize length; \
+        usize capacity; \
+        Allocator *allocator; \
+    } name; \
+    \
+    name prefix##_new(Allocator *allocator); \
+    void prefix##_push(name *array, type value); \
+    type prefix##_pop(name *array); \
+    name prefix##_extend(name *array, name *other); \
+    name prefix##_slice(name *array, usize start, usize end); \
+    void prefix##_reset(name *array); \
+    void prefix##_free(name *array); \
+
+#define DYNAMIC_ARRAY_IMPLEMENT(name, prefix, type) \
+    name prefix##_new(Allocator *allocator) { \
+        name array = { \
+            .data = (type *)allocator->alloc(allocator, sizeof(type)*8), \
+            .length = 0, \
+            .capacity = 8, \
+            .allocator = allocator \
+        }; \
+        return array; \
+    } \
+    \
+    void prefix##_push(name *array, type value) { \
+        if (array->length == array->capacity) { \
+            array->data = (type *)array->allocator->realloc( \
+                array->allocator, \
+                array->data, \
+                sizeof(type)*array->capacity, \
+                sizeof(type)*array->capacity*2 \
+            ); \
+            array->capacity *= 2; \
+        } \
+        array->data[array->length++] = value; \
+    } \
+    \
+    type prefix##_pop(name *array) { \
+        ASSERT(array->length > 0); \
+        return array->data[--array->length]; \
+    } \
+    \
+    name prefix##_extend(name *array, name *other) { \
+        if (array->length + other->length > array->capacity) { \
+            array->data = (type *)array->allocator->realloc( \
+                array->allocator, \
+                array->data, \
+                sizeof(type)*array->capacity, \
+                sizeof(type)*array->capacity*2 \
+            ); \
+            array->capacity *= 2; \
+        } \
+        memcpy(array->data + array->length, other->data, sizeof(type)*other->length); \
+        array->length += other->length; \
+        return *array; \
+    } \
+    \
+    name prefix##_slice(name *array, usize start, usize end) { \
+        ASSERT(start <= end); \
+        ASSERT(end <= array->length); \
+        name slice = { \
+            .data = array->data + start, \
+            .length = end - start, \
+            .capacity = 0, \
+            .allocator = NULL \
+        }; \
+        return slice; \
+    } \
+    \
+    void prefix##_reset(name *array) { \
+        array->length = 0; \
+    } \
+    \
+    void prefix##_free(name *array) { \
+        if (array->allocator == NULL) return; \
+        array->allocator->free(array->allocator, array->data); \
+        array->data = NULL; \
+        array->length = 0; \
+        array->capacity = 0; \
+    } \
+
 #endif // BASE_DECLARATIONS
 
 // --------------------------------------------------------------------------------------
@@ -259,16 +347,12 @@ bool string_eq_cstr(String a, const char *cstr) {
 }
 
 void string_free(String *string) {
+    ASSERT(string != NULL);
+    ASSERT(string->buffer != NULL);
     if (string->allocator == NULL) return;
     string->allocator->free(string->allocator, string->buffer);
     string->buffer = NULL;
     string->length = 0;
 }
-
-// ----------------------
-// --- Dynamic Arrays ---
-// ----------------------
-
-
 
 #endif // BASE_IMPLEMENTATION

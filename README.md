@@ -9,7 +9,7 @@ started quickly without reinventing the wheel.
 - [x] Arena (bump allocator)
 - [x] Unit testing framework
 - [x] Length-based strings and slices
-- [ ] Generic dynamic arrays
+- [x] Generic dynamic arrays
 - [ ] Generic hashmaps
 - [ ] Generic hashsets
 
