@@ -47,6 +47,7 @@ typedef struct Allocator Allocator;
 
 struct Allocator {
     void *(*alloc)(Allocator *allocator, usize size);
+    void *(*realloc)(Allocator *allocator, void *ptr, usize old_size, usize new_size);
     void (*free)(Allocator *allocator, void *ptr);
 };
 
@@ -58,10 +59,12 @@ typedef struct {
     u8 *buffer;
     usize capacity;
     usize offset;
+    void *last_alloc;
 } Arena;
 
 Arena arena_new(usize capacity, Allocator *backing_allocator);
 void *arena_alloc(Arena *arena, usize size);
+void *arena_realloc(Arena *arena, void *ptr, usize old_size, usize new_size);
 void arena_reset(Arena *arena);
 void arena_free(Arena *arena);
 
@@ -101,15 +104,30 @@ void *heap_allocator_alloc(Allocator *allocator, usize size) {
     return ptr;
 }
 
+void *heap_allocator_realloc(Allocator *allocator, void *ptr, usize old_size, usize new_size) {
+    void *new_ptr = realloc(ptr, new_size);
+    ASSERT(new_ptr != NULL);
+    return new_ptr;
+}
+
 void heap_allocator_free(Allocator *allocator, void *ptr) {
     free(ptr);
 }
 
-Allocator heap_allocator = {heap_allocator_alloc, heap_allocator_free};
+Allocator heap_allocator = {
+    heap_allocator_alloc,
+    heap_allocator_realloc,
+    heap_allocator_free
+};
 
 void *arena_allocator_alloc(Allocator *allocator, usize size) {
     Arena *arena = (Arena *)allocator;
     return arena_alloc(arena, size);
+}
+
+void *arena_allocator_realloc(Allocator *allocator, void *ptr, usize old_size, usize new_size) {
+    Arena *arena = (Arena *)allocator;
+    return arena_realloc(arena, ptr, old_size, new_size);
 }
 
 void arena_allocator_free(Allocator *allocator, void *ptr) {}
@@ -118,6 +136,7 @@ Arena arena_new(usize capacity, Allocator *backing_allocator) {
     Arena arena = {
         .allocator = {
             .alloc = arena_allocator_alloc,
+            .realloc = arena_allocator_realloc,
             .free = arena_allocator_free
         },
         .backing_allocator = backing_allocator,
@@ -132,8 +151,39 @@ void *arena_alloc(Arena *arena, usize size) {
     ASSERT(arena->offset + size <= arena->capacity);
     void *ptr = arena->buffer + arena->offset;
     arena->offset += size;
+    arena->last_alloc = ptr;
     memset(ptr, 0, size);
     return ptr;
+}
+
+void *arena_realloc(Arena *arena, void *ptr, usize old_size, usize new_size) {
+    ASSERT(arena->buffer != NULL);
+    ASSERT(ptr != NULL);
+    i64 difference = new_size - old_size;
+
+    if (ptr == arena->last_alloc) {
+        if (difference <= 0) {
+            arena->offset -= difference;
+            return ptr;
+        }
+        else {
+            ASSERT(arena->offset + difference <= arena->capacity);
+            memset(ptr + old_size, 0, difference);
+            arena->offset += difference;
+            return ptr;
+        }
+    }
+    else {
+        if (difference <= 0) {
+            return ptr;
+        }
+        else {
+            void *new_ptr = arena_alloc(arena, new_size);
+            memcpy(new_ptr, ptr, old_size);
+            arena->last_alloc = new_ptr;
+            return new_ptr;
+        }
+    }
 }
 
 void arena_reset(Arena *arena) {
@@ -214,5 +264,11 @@ void string_free(String *string) {
     string->buffer = NULL;
     string->length = 0;
 }
+
+// ----------------------
+// --- Dynamic Arrays ---
+// ----------------------
+
+
 
 #endif // BASE_IMPLEMENTATION
