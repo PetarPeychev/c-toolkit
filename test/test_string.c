@@ -1,5 +1,4 @@
 #include "../lib/base.h"
-#include "../lib/test.h"
 
 TEST(string_from_cstr) {
     String str = string("Hello, world!", &heap_allocator);

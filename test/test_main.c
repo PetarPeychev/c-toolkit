@@ -1,12 +1,11 @@
+#define TESTS_ENABLED
+
 #include "test_allocators.c"
 #include "test_string.c"
 #include "test_dynamic_array.c"
 
 #define BASE_IMPLEMENTATION
 #include "../lib/base.h"
-
-#define TEST_IMPLEMENTATION
-#include "../lib/test.h"
 
 int main(void) {
     test_suite_heap_allocator();

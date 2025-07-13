@@ -39,6 +39,44 @@ typedef size_t usize;
     } \
 } while(0)
 
+// ---------------
+// --- Testing ---
+// ---------------
+
+#define TEST(name) static void test_##name(void)
+int TEST_RESULTS(void);
+
+#ifdef TESTS_ENABLED
+
+bool _test_failed = false;
+i32 _tests_ran = 0;
+i32 _tests_failed = 0;
+
+#define TEST_ASSERT(condition) do { \
+    if (!(condition)) { \
+        fprintf(stderr, "\tASSERTION FAILED: %s at %s:%d in %s()\n", \
+                #condition, __FILE__, __LINE__, __func__); \
+        _test_failed = true; \
+    } \
+} while(0)
+
+#define TEST_RUN(name) do { \
+    printf("Running test %s... \n", #name); \
+    _tests_ran++; \
+    test_##name(); \
+    if (_test_failed) { \
+        _tests_failed++; \
+        _test_failed = false; \
+    } \
+} while(0)
+
+#else // TESTS_ENABLED
+
+#define TEST_ASSERT(condition)
+#define TEST_RUN(name)
+
+#endif // TESTS_ENABLED
+
 // -------------------------
 // --- Memory Allocation ---
 // -------------------------
@@ -180,6 +218,25 @@ void string_free(String *string);
 
 #ifdef BASE_IMPLEMENTATION
 #undef BASE_IMPLEMENTATION
+
+// ---------------
+// --- Testing ---
+// ---------------
+
+#ifdef TESTS_ENABLED
+
+int TEST_RESULTS(void) {
+    printf("\n=== TEST SUMMARY ===\n");
+    printf("Tests ran: %d, Failed: %d\n", _tests_ran, _tests_failed);
+    printf("Overall: %s\n", (_tests_failed == 0) ? "PASS" : "FAIL");
+    return !(_tests_failed == 0);
+}
+
+#else // TESTS_ENABLED
+
+int TEST_RESULTS(void) { return 0; }
+
+#endif // TESTS_ENABLED
 
 // -------------------------
 // --- Memory Allocation ---

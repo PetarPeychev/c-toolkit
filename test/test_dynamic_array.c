@@ -1,5 +1,4 @@
 #include "../lib/base.h"
-#include "../lib/test.h"
 
 DYNAMIC_ARRAY_DECLARE(DA, array, i32)
 DYNAMIC_ARRAY_IMPLEMENT(DA, array, i32)

@@ -60,7 +60,6 @@
                 "-Wall",
                 "-Werror",
                 "-g",
-                "-DTEST_ENABLED",
                 "test/test_main.c",
                 "-o",
                 "bin/test"

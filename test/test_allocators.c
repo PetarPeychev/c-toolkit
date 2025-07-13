@@ -1,5 +1,4 @@
 #include "../lib/base.h"
-#include "../lib/test.h"
 
 TEST(heap_allocator_alloc) {
     i32 *ptr = (i32 *)heap_allocator.alloc(&heap_allocator, sizeof(i32));
