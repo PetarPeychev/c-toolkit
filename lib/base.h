@@ -122,6 +122,7 @@ String string_concat(String a, String b, Allocator *allocator);
 String string_slice(String string, usize start, usize end);
 bool string_eq(String a, String b);
 bool string_eq_cstr(String a, const char *cstr);
+u64 string_hash(String str);
 void string_free(String *string);
 
 // ----------------------
@@ -210,6 +211,179 @@ void string_free(String *string);
         array->data = NULL; \
         array->length = 0; \
         array->capacity = 0; \
+    } \
+
+// -------------------
+// --- Hash Tables ---
+// -------------------
+
+u64 integer_hash(u64 value);
+bool integer_eq(u64 a, u64 b);
+u64 cstr_hash(const char *str);
+bool cstr_eq(const char *a, const char *b);
+
+#define HASH_TABLE_DECLARE(name, prefix, key_type, value_type) \
+    typedef struct name##Entry { \
+        key_type key; \
+        value_type value; \
+        struct name##Entry *next; \
+    } name##Entry; \
+    \
+    typedef struct { \
+        name##Entry **buckets; \
+        usize bucket_count; \
+        usize size; \
+        u64 (*hash)(key_type key); \
+        bool (*eq)(key_type a, key_type b); \
+        Allocator *allocator; \
+    } name; \
+    \
+    name prefix##_new(u64 (*hash)(key_type), bool (*eq)(key_type, key_type), Allocator *allocator); \
+    void prefix##_set(name *table, key_type key, value_type value); \
+    bool prefix##_contains(name *table, key_type key); \
+    value_type prefix##_get(name *table, key_type key); \
+    bool prefix##_remove(name *table, key_type key); \
+    void prefix##_reset(name *table); \
+    void prefix##_free(name *table); \
+
+#define HASH_TABLE_IMPLEMENT(name, prefix, key_type, value_type) \
+    static void prefix##_grow(name *table) { \
+        usize old_bucket_count = table->bucket_count; \
+        name##Entry **old_buckets = table->buckets; \
+        \
+        table->bucket_count *= 2; \
+        table->buckets = (name##Entry **)table->allocator->alloc( \
+            table->allocator, sizeof(name##Entry *) * table->bucket_count); \
+        table->size = 0; \
+        \
+        for (usize i = 0; i < old_bucket_count; i++) { \
+            name##Entry *entry = old_buckets[i]; \
+            while (entry != NULL) { \
+                name##Entry *next = entry->next; \
+                \
+                u64 hash = table->hash(entry->key); \
+                usize bucket_index = hash % table->bucket_count; \
+                \
+                entry->next = table->buckets[bucket_index]; \
+                table->buckets[bucket_index] = entry; \
+                table->size++; \
+                \
+                entry = next; \
+            } \
+        } \
+        \
+        table->allocator->free(table->allocator, old_buckets); \
+    } \
+    \
+    name prefix##_new(u64 (*hash)(key_type), bool (*eq)(key_type, key_type), Allocator *allocator) { \
+        name table = { \
+            .buckets = (name##Entry **)allocator->alloc(allocator, sizeof(name##Entry *) * 8), \
+            .bucket_count = 8, \
+            .size = 0, \
+            .hash = hash, \
+            .eq = eq, \
+            .allocator = allocator \
+        }; \
+        return table; \
+    } \
+    \
+    void prefix##_set(name *table, key_type key, value_type value) { \
+        u64 hash = table->hash(key); \
+        usize bucket_index = hash % table->bucket_count; \
+        \
+        name##Entry *entry = table->buckets[bucket_index]; \
+        while (entry != NULL) { \
+            if (table->eq(entry->key, key)) { \
+                entry->value = value; \
+                return; \
+            } \
+            entry = entry->next; \
+        } \
+        \
+        name##Entry *new_entry = (name##Entry *)table->allocator->alloc( \
+            table->allocator, sizeof(name##Entry)); \
+        new_entry->key = key; \
+        new_entry->value = value; \
+        new_entry->next = table->buckets[bucket_index]; \
+        table->buckets[bucket_index] = new_entry; \
+        table->size++; \
+        \
+        if (table->size > table->bucket_count * 3 / 4) { \
+            prefix##_grow(table); \
+        } \
+    } \
+    \
+    bool prefix##_contains(name *table, key_type key) { \
+        u64 hash = table->hash(key); \
+        usize bucket_index = hash % table->bucket_count; \
+        \
+        name##Entry *entry = table->buckets[bucket_index]; \
+        while (entry != NULL) { \
+            if (table->eq(entry->key, key)) { \
+                return true; \
+            } \
+            entry = entry->next; \
+        } \
+        return false; \
+    } \
+    \
+    value_type prefix##_get(name *table, key_type key) { \
+        u64 hash = table->hash(key); \
+        usize bucket_index = hash % table->bucket_count; \
+        \
+        name##Entry *entry = table->buckets[bucket_index]; \
+        while (entry != NULL) { \
+            if (table->eq(entry->key, key)) { \
+                return entry->value; \
+            } \
+            entry = entry->next; \
+        } \
+        ASSERT(false && "Key not found in hash table"); \
+        return (value_type){0}; \
+    } \
+    \
+    bool prefix##_remove(name *table, key_type key) { \
+        u64 hash = table->hash(key); \
+        usize bucket_index = hash % table->bucket_count; \
+        \
+        name##Entry *entry = table->buckets[bucket_index]; \
+        name##Entry *prev = NULL; \
+        \
+        while (entry != NULL) { \
+            if (table->eq(entry->key, key)) { \
+                if (prev == NULL) { \
+                    table->buckets[bucket_index] = entry->next; \
+                } else { \
+                    prev->next = entry->next; \
+                } \
+                table->allocator->free(table->allocator, entry); \
+                table->size--; \
+                return true; \
+            } \
+            prev = entry; \
+            entry = entry->next; \
+        } \
+        return false; \
+    } \
+    \
+    void prefix##_reset(name *table) { \
+        for (usize i = 0; i < table->bucket_count; i++) { \
+            name##Entry *entry = table->buckets[i]; \
+            while (entry != NULL) { \
+                name##Entry *next = entry->next; \
+                table->allocator->free(table->allocator, entry); \
+                entry = next; \
+            } \
+            table->buckets[i] = NULL; \
+        } \
+        table->size = 0; \
+    } \
+    \
+    void prefix##_free(name *table) { \
+        prefix##_reset(table); \
+        table->allocator->free(table->allocator, table->buckets); \
+        table->buckets = NULL; \
+        table->bucket_count = 0; \
     } \
 
 #endif // BASE_DECLARATIONS
@@ -403,6 +577,16 @@ bool string_eq_cstr(String a, const char *cstr) {
     return true;
 }
 
+u64 string_hash(String str) {
+    // FNV-1a hash for strings
+    u64 hash = 14695981039346656037ULL; // FNV offset basis
+    for (usize i = 0; i < str.length; i++) {
+        hash ^= str.buffer[i];
+        hash *= 1099511628211ULL; // FNV prime
+    }
+    return hash;
+}
+
 void string_free(String *string) {
     ASSERT(string != NULL);
     ASSERT(string->buffer != NULL);
@@ -410,6 +594,38 @@ void string_free(String *string) {
     string->allocator->free(string->allocator, string->buffer);
     string->buffer = NULL;
     string->length = 0;
+}
+
+// -------------------
+// --- Hash Tables ---
+// -------------------
+
+u64 integer_hash(u64 value) {
+    // Simple bit mixing for integers
+    value ^= value >> 33;
+    value *= 0xff51afd7ed558ccdULL;
+    value ^= value >> 33;
+    value *= 0xc4ceb9fe1a85ec53ULL;
+    value ^= value >> 33;
+    return value;
+}
+
+bool integer_eq(u64 a, u64 b) {
+    return a == b;
+}
+
+u64 cstr_hash(const char *str) {
+    // FNV-1a hash for strings
+    u64 hash = 14695981039346656037ULL; // FNV offset basis
+    for (usize i = 0; i < strlen(str); i++) {
+        hash ^= str[i];
+        hash *= 1099511628211ULL; // FNV prime
+    }
+    return hash;
+}
+
+bool cstr_eq(const char *a, const char *b) {
+    return strcmp(a, b) == 0;
 }
 
 #endif // BASE_IMPLEMENTATION
