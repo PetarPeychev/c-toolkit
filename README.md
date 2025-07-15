@@ -10,7 +10,7 @@ started quickly without reinventing the wheel.
 - [x] Unit testing framework
 - [x] Length-based strings and slices
 - [x] Generic dynamic arrays
-- [ ] Generic hashmaps
+- [x] Generic hashmaps
 - [ ] Generic hashsets
 
 **Project Template**
